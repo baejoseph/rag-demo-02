@@ -1,0 +1,30 @@
+[project]
+name = "rag-lite"
+version = "0.1.0"
+description = "A lightweight RAG (Retrieval Augmented Generation) implementation"
+authors = []
+dependencies = [
+    "PyMuPDF>=1.23.0",  # for PDF parsing (fitz)
+    "openai>=1.0.0",    # for embeddings and API interactions
+    "python-dotenv>=1.0.0",  # for environment variable management
+    "pydantic>=2.0.0",  # for data validation
+]
+requires-python = ">=3.8"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["rag-lite"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py38"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"] 
