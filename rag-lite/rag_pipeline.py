@@ -44,9 +44,27 @@ class ProcessorConfig:
 class Corpus:
     def __init__(self):
         self.chunks: List[DocumentChunk] = []
+        self._chunk_ids: set[str] = set()  # Track unique chunks
 
-    def add_chunk(self, chunk: DocumentChunk) -> None:
+    def _make_chunk_id(self, chunk: DocumentChunk) -> str:
+        return f"{chunk.metadata.document_id}:{chunk.metadata.section_number}"
+
+    def add_chunk(self, chunk: DocumentChunk) -> bool:
+        chunk_id = self._make_chunk_id(chunk)
+        if chunk_id in self._chunk_ids:
+            logger.debug("Skipping duplicate chunk: %s", chunk_id)
+            return False
+        
+        self._chunk_ids.add(chunk_id)
         self.chunks.append(chunk)
+        return True
+
+    def add_chunks(self, chunks: List[DocumentChunk]) -> int:
+        added_count = 0
+        for chunk in chunks:
+            if self.add_chunk(chunk):
+                added_count += 1
+        return added_count
 
     def get_all_chunks(self) -> List[DocumentChunk]:
         return self.chunks
@@ -107,15 +125,17 @@ class PromptAugmenter:
     def augment_query(self, query: Query, retrieved_chunks: List[RetrievedChunk]) -> str:
         logger.info("Augmenting query with %d retrieved chunks", len(retrieved_chunks))
         
-        prompt = query.text + "\n\nContext:\n"
+        system_prompt = open("rag_prompt.md", "r").read()
+        
+        retrieved_chunk_text = ""
         for rc in retrieved_chunks:
             md = rc.chunk.metadata
-            context_line = f"[{md.file_name} p{md.section_number}]: {rc.chunk.content}"
-            prompt += context_line + "\n"
+            context_line = f"[{md.file_name} Section {md.section_number}]: {rc.chunk.content}"
+            retrieved_chunk_text += context_line + "\n"
             
-        estimated_tokens = len(prompt) // 4
+        estimated_tokens = len(system_prompt) // 4
         logger.debug("Generated augmented prompt with ~%d tokens", estimated_tokens)
-        return prompt + "\n\nAnswer the question based on the context provided, and always cite the section number in the format e.g. (Section 1.2)."
+        return system_prompt.format(retrieved_chunks_text=retrieved_chunk_text, user_query=query.text)
 
 # === Generation Service ===
 
@@ -156,6 +176,8 @@ class QueryProcessor:
         )
 
         augmented_prompt = self.prompt_augmenter.augment_query(query, retrieved_chunks)
+        logger.info("Augmented prompt: %s", augmented_prompt)
         response = self.generation_service.generate_response(augmented_prompt)
         logger.info("Query processing completed")
+        logger.info("Response: %s", response)
         return response

@@ -21,7 +21,7 @@ st.title("🔍📚 Retrieval-Augmented Chatbot (MVP)")
 st.sidebar.header("🔧 Configuration")
 api_key = os.environ["OPENAI_API_KEY"]
 top_k = st.sidebar.slider("Top K Chunks", 1, 10, 3)
-similarity_threshold = st.sidebar.slider("Similarity Threshold", 0.0, 1.0, 0.75)
+similarity_threshold = st.sidebar.slider("Similarity Threshold", 0.0, 1.0, 0.6)
 
 # === Session State Initialization ===
 if "chat_history" not in st.session_state:
@@ -67,10 +67,17 @@ if uploaded_file and uploaded_file.size < 2 * 1024 * 1024:
     parser = DocumentParser(st.session_state.embedding_service)
     new_chunks = parser.parse_docx(uploaded_file)
 
-    for chunk in new_chunks:
-        st.session_state.corpus.add_chunk(chunk)
+    # Add chunks and get count of newly added ones
+    added_count = st.session_state.corpus.add_chunks(new_chunks)
+    
+    if added_count > 0:
+        st.sidebar.success(f"Added {added_count} new chunks to corpus")
+    else:
+        st.sidebar.info("No new chunks added (document already in corpus)")
+    
+    total_chunks = len(st.session_state.corpus.get_all_chunks())
+    st.sidebar.info(f"Total chunks in corpus: {total_chunks}")
 
-    st.sidebar.info(f"Added {len(new_chunks)} chunks to corpus")
 elif uploaded_file:
     st.sidebar.error("File too large. Please upload files under 2MB.")
 

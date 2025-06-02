@@ -3,7 +3,7 @@ import re
 import subprocess
 import json
 import hashlib
-from typing import List
+from typing import List, Dict, Any
 from datetime import datetime
 from docx import Document as DocxDocument
 from rag_pipeline import DocumentChunk, DocumentMetadata
@@ -21,6 +21,47 @@ class DocumentParser:
         key_data = f"{core_props.title}-{core_props.modified}-{core_props.author}"
         return hashlib.sha256(key_data.encode()).hexdigest()
 
+    def _serialize_chunk(self, chunk: DocumentChunk) -> Dict[str, Any]:
+        return {
+            'content': chunk.content,
+            'metadata': {
+                'file_name': chunk.metadata.file_name,
+                'file_version': chunk.metadata.file_version,
+                'file_date': chunk.metadata.file_date.isoformat(),
+                'section_number': chunk.metadata.section_number,
+                'page': chunk.metadata.page,
+                'document_id': chunk.metadata.document_id
+            },
+            'embedding': chunk.embedding
+        }
+
+    def _reconstruct_chunk_from_dict(self, chunk_dict: Dict[str, Any]) -> DocumentChunk:
+        metadata_dict = chunk_dict['metadata']
+        if isinstance(metadata_dict, str):
+            # Handle old format if needed
+            logger.warning("Found old format metadata, clearing cache recommended")
+            return DocumentChunk(
+                content=chunk_dict['content'],
+                metadata=DocumentMetadata(
+                    file_name="",
+                    file_version="v1",
+                    file_date=datetime.now(),
+                    section_number="1",
+                    page=0,
+                    document_id=""
+                ),
+                embedding=chunk_dict['embedding']
+            )
+        
+        metadata_dict['file_date'] = datetime.fromisoformat(metadata_dict['file_date'])
+        metadata = DocumentMetadata(**metadata_dict)
+        
+        return DocumentChunk(
+            content=chunk_dict['content'],
+            metadata=metadata,
+            embedding=chunk_dict['embedding']
+        )
+
     def parse_docx(self, docx_file: DocxDocument) -> List[DocumentChunk]:
         docx_file = DocxDocument(docx_file)
         file_hash = self._hash_docx_metadata(docx_file)
@@ -36,7 +77,7 @@ class DocumentParser:
             logger.info("Found cached chunks for document with hash: %s", file_hash)
             with open(chunks_path, "r", encoding="utf-8") as f:
                 chunk_dicts = json.load(f)
-            return [DocumentChunk(**chunk) for chunk in chunk_dicts]
+            return [self._reconstruct_chunk_from_dict(chunk) for chunk in chunk_dicts]
 
         # Save file to file_path for pandoc subprocess
         docx_file.save(file_path)
@@ -88,7 +129,7 @@ class DocumentParser:
                 section_number = ".".join(str(section_counter[l]) for l in sorted(section_counter.keys()))
 
             chunk_text = chunk.strip()
-            estimated_tokens = len(chunk_text) // 4  # Simple token estimation
+            estimated_tokens = len(chunk_text) // 4
             logger.debug("Processing chunk with ~%d tokens from section %s", estimated_tokens, section_number)
             
             embedding = self.embedding_service.embed_text(chunk_text)
@@ -106,7 +147,7 @@ class DocumentParser:
 
         # Save processed chunks to cache
         with open(chunks_path, "w", encoding="utf-8") as f:
-            json.dump([chunk.__dict__ for chunk in chunks], f, default=str, indent=2)
+            json.dump([self._serialize_chunk(chunk) for chunk in chunks], f, default=str, indent=2)
         logger.info("Saved chunks to cache: %s", chunks_path)
 
         return chunks
