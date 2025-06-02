@@ -17,11 +17,7 @@ load_dotenv()
 st.set_page_config(page_title="RAG Chat MVP", layout="wide")
 st.title("🔍📚 Retrieval-Augmented Chatbot (MVP)")
 
-# === Sidebar Configuration ===
-st.sidebar.header("🔧 Configuration")
 api_key = os.environ["OPENAI_API_KEY"]
-top_k = st.sidebar.slider("Top K Chunks", 1, 10, 3)
-similarity_threshold = st.sidebar.slider("Similarity Threshold", 0.0, 1.0, 0.75)
 
 # === Session State Initialization ===
 if "chat_history" not in st.session_state:
@@ -30,32 +26,21 @@ if "chat_history" not in st.session_state:
 if "corpus" not in st.session_state:
     st.session_state.corpus = Corpus()
 
-if "processor" not in st.session_state:
+if "base_services" not in st.session_state:
     with st.spinner("Initializing LLM..."):
         embedding_service = OpenAIEmbeddingService(api_key)
         generation_service = OpenAIGenerationService(api_key)
         similarity_metric = CosineSimilarity()
         retrieval_service = RetrievalService(st.session_state.corpus, similarity_metric)
         augmenter = PromptAugmenter('rag_prompt.md')
-
-        config = ProcessorConfig(
-            retrieval=RetrievalConfig(top_k=top_k, similarity_threshold=similarity_threshold)
-        )
-
-        processor = QueryProcessor(
-            corpus=st.session_state.corpus,
-            embedding_service=embedding_service,
-            retrieval_service=retrieval_service,
-            prompt_augmenter=augmenter,
-            generation_service=generation_service,
-            config=config
-        )
-
-        st.session_state.embedding_service = embedding_service
-        st.session_state.processor = processor
-    st.success(f"LLM initialized: {processor.generation_service.model}", icon="✅")
-
-
+        
+        st.session_state.base_services = {
+            "embedding_service": embedding_service,
+            "generation_service": generation_service,
+            "retrieval_service": retrieval_service,
+            "augmenter": augmenter
+        }
+    st.success(f"LLM initialized: {generation_service.model}", icon="✅")
 
 # === File Upload ===
 st.sidebar.markdown("---")
@@ -65,7 +50,7 @@ uploaded_file = st.sidebar.file_uploader("Upload a docx file (<2MB)", type="docx
 if uploaded_file and uploaded_file.size < 2 * 1024 * 1024:
     st.sidebar.success(f"Uploaded: {uploaded_file.name}")
     with st.spinner("Parsing document..."):
-        parser = DocumentParser(st.session_state.embedding_service)
+        parser = DocumentParser(st.session_state.base_services["embedding_service"])
         new_chunks = parser.parse_docx(uploaded_file)
     st.sidebar.success("Document parsed successfully", icon="✅")
 
@@ -83,12 +68,35 @@ if uploaded_file and uploaded_file.size < 2 * 1024 * 1024:
 elif uploaded_file:
     st.sidebar.error("File too large. Please upload files under 2MB.")
 
+# === Retrieval Configuration ===
+st.sidebar.markdown("---")
+st.sidebar.subheader("🔧 Retrieval Settings")
+top_k = st.sidebar.slider("Top K Chunks", 1, 10, 3)
+similarity_threshold = st.sidebar.slider("Similarity Threshold", 0.0, 1.0, 0.6)
+
 # === Chat Input ===
 user_input = st.chat_input("Ask a question...")
 
 if user_input and api_key:
     with st.spinner("Generating response..."):
-        response = st.session_state.processor.process_query(user_input)
+        # Create new processor with current config values
+        current_config = ProcessorConfig(
+            retrieval=RetrievalConfig(
+                top_k=top_k,
+                similarity_threshold=similarity_threshold
+            )
+        )
+        
+        processor = QueryProcessor(
+            corpus=st.session_state.corpus,
+            embedding_service=st.session_state.base_services["embedding_service"],
+            retrieval_service=st.session_state.base_services["retrieval_service"],
+            prompt_augmenter=st.session_state.base_services["augmenter"],
+            generation_service=st.session_state.base_services["generation_service"],
+            config=current_config
+        )
+        
+        response = processor.process_query(user_input)
         st.session_state.chat_history.append({"user": user_input, "bot": response})
 
 # === Display Chat ===
