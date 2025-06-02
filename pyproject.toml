@@ -4,12 +4,22 @@ version = "0.1.0"
 description = "A lightweight RAG (Retrieval Augmented Generation) implementation"
 authors = []
 dependencies = [
-    "PyMuPDF>=1.23.0",  # for PDF parsing (fitz)
-    "openai>=1.0.0",    # for embeddings and API interactions
-    "python-dotenv>=1.0.0",  # for environment variable management
-    "pydantic>=2.0.0",  # for data validation
+    "openai>=1.82.1",                # released 29 May 2025
+    "python-dotenv>=1.0.0",          # for environment variable management
+    "pydantic>=2.0.0",               # for data validation
+    "python-docx>=0.8.11",           # for reading .docx metadata
+    "streamlit>=1.25.0",             # for frontend UI
+    "dotenv",
+    "numpy>1.24.4",
 ]
-requires-python = ">=3.8"
+
+requires-python = ">=3.11"
+
+[project.optional-dependencies]
+dev = ["ruff", "pytest"]
+docx = ["python-docx"]
+pdf = ["PyMuPDF"]
+pandoc = []  # reminder: Pandoc is a system dependency
 
 [build-system]
 requires = ["hatchling"]
@@ -27,4 +37,4 @@ select = ["E", "F", "I"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-python_files = ["test_*.py"] 
+python_files = ["test_*.py"]

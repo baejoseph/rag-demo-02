@@ -8,7 +8,10 @@ from rag_pipeline import (
 from parser import DocumentParser
 from typing import List
 from datetime import datetime
+from dotenv import load_dotenv
 import os
+
+load_dotenv()
 
 # === Streamlit Setup ===
 st.set_page_config(page_title="RAG Chat MVP", layout="wide")
@@ -16,7 +19,7 @@ st.title("🔍📚 Retrieval-Augmented Chatbot (MVP)")
 
 # === Sidebar Configuration ===
 st.sidebar.header("🔧 Configuration")
-api_key = st.sidebar.text_input("OpenAI API Key", type="password")
+api_key = os.environ["OPENAI_API_KEY"]
 top_k = st.sidebar.slider("Top K Chunks", 1, 10, 3)
 similarity_threshold = st.sidebar.slider("Similarity Threshold", 0.0, 1.0, 0.75)
 
@@ -27,7 +30,8 @@ if "chat_history" not in st.session_state:
 if "corpus" not in st.session_state:
     st.session_state.corpus = Corpus()
 
-if "processor" not in st.session_state and api_key:
+if "processor" not in st.session_state:
+    st.info("Initializing LLM...")
     embedding_service = OpenAIEmbeddingService(api_key)
     generation_service = OpenAIGenerationService(api_key)
     similarity_metric = CosineSimilarity()
@@ -49,18 +53,19 @@ if "processor" not in st.session_state and api_key:
 
     st.session_state.embedding_service = embedding_service
     st.session_state.processor = processor
+    st.success(f"LLM initialized: {processor.generation_service.model}")
 
 
 
 # === File Upload ===
 st.sidebar.markdown("---")
-st.sidebar.subheader("📄 Upload PDF")
-uploaded_file = st.sidebar.file_uploader("Upload a PDF (<2MB)", type="pdf")
+st.sidebar.subheader("📄 Upload docx file")
+uploaded_file = st.sidebar.file_uploader("Upload a docx file (<2MB)", type="docx")
 
 if uploaded_file and uploaded_file.size < 2 * 1024 * 1024:
     st.sidebar.success(f"Uploaded: {uploaded_file.name}")
     parser = DocumentParser(st.session_state.embedding_service)
-    new_chunks = parser.parse_pdf(uploaded_file)
+    new_chunks = parser.parse_docx(uploaded_file)
 
     for chunk in new_chunks:
         st.session_state.corpus.add_chunk(chunk)

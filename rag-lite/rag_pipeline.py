@@ -94,7 +94,7 @@ class PromptAugmenter:
         prompt = query.text + "\n\nContext:\n"
         for rc in retrieved_chunks:
             md = rc.chunk.metadata
-            context_line = f"[{md.file_name} p{md.page}]: {rc.chunk.content}"
+            context_line = f"[{md.file_name} p{md.section_number}]: {rc.chunk.content}"
             prompt += context_line + "\n"
         return prompt
 
