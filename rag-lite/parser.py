@@ -3,7 +3,7 @@ import re
 import subprocess
 import json
 import hashlib
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 from datetime import datetime
 from docx import Document as DocxDocument
 from rag_pipeline import DocumentChunk, DocumentMetadata
@@ -29,7 +29,7 @@ class DocumentParser:
                 'file_version': chunk.metadata.file_version,
                 'file_date': chunk.metadata.file_date.isoformat(),
                 'section_number': chunk.metadata.section_number,
-                'page': chunk.metadata.page,
+                'section_heading': chunk.metadata.section_heading,
                 'document_id': chunk.metadata.document_id
             },
             'embedding': chunk.embedding
@@ -47,7 +47,7 @@ class DocumentParser:
                     file_version="v1",
                     file_date=datetime.now(),
                     section_number="1",
-                    page=0,
+                    section_heading="",
                     document_id=""
                 ),
                 embedding=chunk_dict['embedding']
@@ -62,7 +62,19 @@ class DocumentParser:
             embedding=chunk_dict['embedding']
         )
 
+    def _process_heading(self, chunk: str) -> Tuple[str, str, str]:
+        """Extract heading information from a chunk.
+        Returns: (cleaned_content, section_number, section_heading)"""
+        heading_match = re.match(r"^(#{1,6})\s+(.+?)(?:\n|$)(.*)", chunk.strip(), re.DOTALL)
+        if heading_match:
+            level = len(heading_match.group(1))
+            heading = heading_match.group(2).strip()
+            content = (heading + "\n" + heading_match.group(3)).strip()
+            return content, str(level), heading
+        return chunk.strip(), "", ""
+
     def parse_docx(self, docx_file: DocxDocument) -> List[DocumentChunk]:
+        file_name = docx_file.name
         docx_file = DocxDocument(docx_file)
         file_hash = self._hash_docx_metadata(docx_file)
         cache_dir = os.path.join(self.cache_root, file_hash)
@@ -108,14 +120,16 @@ class DocumentParser:
 
         chunks: List[DocumentChunk] = []
         section_counter = {}
+        current_heading = ""
 
         for chunk in raw_chunks:
             if not chunk.strip():
                 continue
 
-            heading_match = re.match(r"^(#{1,6}) (.+)", chunk.strip())
-            if heading_match:
-                level = len(heading_match.group(1))
+            chunk_text, level_str, heading = self._process_heading(chunk)
+            
+            if level_str:  # This is a section with a heading
+                level = int(level_str)
                 if level not in section_counter:
                     section_counter[level] = 1
                 else:
@@ -125,20 +139,21 @@ class DocumentParser:
                         del section_counter[k]
                 section_numbers = [str(section_counter[l]) for l in sorted(section_counter.keys()) if l <= level]
                 section_number = ".".join(section_numbers)
+                current_heading = heading
             else:
                 section_number = ".".join(str(section_counter[l]) for l in sorted(section_counter.keys()))
 
-            chunk_text = chunk.strip()
             estimated_tokens = len(chunk_text) // 4
-            logger.debug("Processing chunk with ~%d tokens from section %s", estimated_tokens, section_number)
+            logger.debug("Processing chunk with ~%d tokens from section %s: %s", 
+                        estimated_tokens, section_number, current_heading)
             
             embedding = self.embedding_service.embed_text(chunk_text)
             metadata = DocumentMetadata(
-                file_name=docx_file.core_properties.title,
+                file_name=file_name,
                 file_version="v1",
                 file_date=file_date,
                 section_number=section_number,
-                page=0,
+                section_heading=current_heading,
                 document_id=docx_file.core_properties.title,
             )
             chunks.append(DocumentChunk(content=chunk_text, metadata=metadata, embedding=embedding))

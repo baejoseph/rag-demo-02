@@ -11,7 +11,7 @@ class DocumentMetadata:
     file_version: str
     file_date: datetime
     section_number: str
-    page: int
+    section_heading: str
     document_id: Optional[str] = None  # Optional trace ID
 
 @dataclass
@@ -114,7 +114,7 @@ class RetrievalService:
         logger.info("Retrieved %d chunks above similarity threshold %.2f", 
                    len(results), config.similarity_threshold)
         for rc in results:
-            logger.debug("Retrieved chunk from section %s with score %.3f", 
+            logger.info("Retrieved chunk from section %s with score %.3f", 
                         rc.chunk.metadata.section_number, rc.similarity_score)
         
         return results

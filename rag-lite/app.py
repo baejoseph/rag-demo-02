@@ -31,29 +31,29 @@ if "corpus" not in st.session_state:
     st.session_state.corpus = Corpus()
 
 if "processor" not in st.session_state:
-    st.info("Initializing LLM...")
-    embedding_service = OpenAIEmbeddingService(api_key)
-    generation_service = OpenAIGenerationService(api_key)
-    similarity_metric = CosineSimilarity()
-    retrieval_service = RetrievalService(st.session_state.corpus, similarity_metric)
-    augmenter = PromptAugmenter()
+    with st.spinner("Initializing LLM..."):
+        embedding_service = OpenAIEmbeddingService(api_key)
+        generation_service = OpenAIGenerationService(api_key)
+        similarity_metric = CosineSimilarity()
+        retrieval_service = RetrievalService(st.session_state.corpus, similarity_metric)
+        augmenter = PromptAugmenter()
 
-    config = ProcessorConfig(
-        retrieval=RetrievalConfig(top_k=top_k, similarity_threshold=similarity_threshold)
-    )
+        config = ProcessorConfig(
+            retrieval=RetrievalConfig(top_k=top_k, similarity_threshold=similarity_threshold)
+        )
 
-    processor = QueryProcessor(
-        corpus=st.session_state.corpus,
-        embedding_service=embedding_service,
-        retrieval_service=retrieval_service,
-        prompt_augmenter=augmenter,
-        generation_service=generation_service,
-        config=config
-    )
+        processor = QueryProcessor(
+            corpus=st.session_state.corpus,
+            embedding_service=embedding_service,
+            retrieval_service=retrieval_service,
+            prompt_augmenter=augmenter,
+            generation_service=generation_service,
+            config=config
+        )
 
-    st.session_state.embedding_service = embedding_service
-    st.session_state.processor = processor
-    st.success(f"LLM initialized: {processor.generation_service.model}")
+        st.session_state.embedding_service = embedding_service
+        st.session_state.processor = processor
+    st.success(f"LLM initialized: {processor.generation_service.model}", icon="✅")
 
 
 
@@ -64,8 +64,10 @@ uploaded_file = st.sidebar.file_uploader("Upload a docx file (<2MB)", type="docx
 
 if uploaded_file and uploaded_file.size < 2 * 1024 * 1024:
     st.sidebar.success(f"Uploaded: {uploaded_file.name}")
-    parser = DocumentParser(st.session_state.embedding_service)
-    new_chunks = parser.parse_docx(uploaded_file)
+    with st.spinner("Parsing document..."):
+        parser = DocumentParser(st.session_state.embedding_service)
+        new_chunks = parser.parse_docx(uploaded_file)
+    st.sidebar.success("Document parsed successfully", icon="✅")
 
     # Add chunks and get count of newly added ones
     added_count = st.session_state.corpus.add_chunks(new_chunks)
