@@ -229,7 +229,7 @@ class PromptAugmenter:
         retrieved_chunk_text = ""
         for rc in retrieved_chunks:
             md = rc.chunk.metadata
-            context_line = f"[{md.file_name} Section {md.section_number}]: {rc.chunk.content}"
+            context_line = f"[Section {md.section_number} of {md.file_name}]: {rc.chunk.content}"
             retrieved_chunk_text += context_line + "\n"
             
         prompt = self.prompt_template.format(
