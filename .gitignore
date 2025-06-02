@@ -1,3 +1,5 @@
 local_cache/
 .venv/
 .env
+logs/
+!logs/.gitkeep
