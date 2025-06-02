@@ -21,7 +21,7 @@ st.title("🔍📚 Retrieval-Augmented Chatbot (MVP)")
 st.sidebar.header("🔧 Configuration")
 api_key = os.environ["OPENAI_API_KEY"]
 top_k = st.sidebar.slider("Top K Chunks", 1, 10, 3)
-similarity_threshold = st.sidebar.slider("Similarity Threshold", 0.0, 1.0, 0.6)
+similarity_threshold = st.sidebar.slider("Similarity Threshold", 0.0, 1.0, 0.75)
 
 # === Session State Initialization ===
 if "chat_history" not in st.session_state:
@@ -36,7 +36,7 @@ if "processor" not in st.session_state:
         generation_service = OpenAIGenerationService(api_key)
         similarity_metric = CosineSimilarity()
         retrieval_service = RetrievalService(st.session_state.corpus, similarity_metric)
-        augmenter = PromptAugmenter()
+        augmenter = PromptAugmenter('rag_prompt.md')
 
         config = ProcessorConfig(
             retrieval=RetrievalConfig(top_k=top_k, similarity_threshold=similarity_threshold)
