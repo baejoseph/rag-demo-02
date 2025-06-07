@@ -10,6 +10,7 @@ from typing import List
 from datetime import datetime
 from dotenv import load_dotenv
 import os
+import boto3
 
 load_dotenv()
 
@@ -18,6 +19,10 @@ st.set_page_config(page_title="RAG Chat MVP", layout="wide")
 st.title("🔍📚 Retrieval-Augmented Chatbot (MVP)")
 
 api_key = os.environ["OPENAI_API_KEY"]
+aws_access_key_id = os.getenv("AWS_ACCESS_KEY_ID")
+aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+aws_region = os.getenv("AWS_REGION")
+bucket_name = os.getenv("AWS_S3_BUCKET")
 
 # === Session State Initialization ===
 if "chat_history" not in st.session_state:
@@ -33,12 +38,19 @@ if "base_services" not in st.session_state:
         similarity_metric = CosineSimilarity()
         retrieval_service = RetrievalService(st.session_state.corpus, similarity_metric)
         augmenter = PromptAugmenter('rag_prompt.md')
+        s3_client = boto3.client(
+                "s3",
+                aws_access_key_id=aws_access_key_id,
+                aws_secret_access_key=aws_secret_access_key,
+                region_name=aws_region
+            )
         
         st.session_state.base_services = {
             "embedding_service": embedding_service,
             "generation_service": generation_service,
             "retrieval_service": retrieval_service,
-            "augmenter": augmenter
+            "augmenter": augmenter,
+            "s3_client": s3_client,
         }
     st.success(f"LLM initialized: {generation_service.model}", icon="✅")
 
@@ -50,7 +62,9 @@ uploaded_file = st.sidebar.file_uploader("Upload a docx file (<2MB)", type="docx
 if uploaded_file and uploaded_file.size < 2 * 1024 * 1024:
     st.sidebar.success(f"Uploaded: {uploaded_file.name}")
     with st.spinner("Parsing document..."):
-        parser = DocumentParser(st.session_state.base_services["embedding_service"])
+        parser = DocumentParser(st.session_state.base_services["embedding_service"],
+                                st.session_state.base_services["s3_client"],
+                                bucket_name,)
         new_chunks = parser.parse_docx(uploaded_file)
     st.sidebar.success("Document parsed successfully", icon="✅")
 

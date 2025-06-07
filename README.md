@@ -62,8 +62,8 @@ A lightweight but powerful implementation of Retrieval Augmented Generation (RAG
 
 5. **Set Up Environment Variables**
    ```bash
-   cp .env.example .env
-   # Edit .env and add your OpenAI API key
+   cp env.template .env
+   # Edit .env and add your OpenAI API and AWS keys
    ```
 
 ## 🎮 Usage

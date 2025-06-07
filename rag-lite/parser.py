@@ -9,12 +9,15 @@ from docx import Document as DocxDocument
 from rag_pipeline import DocumentChunk, DocumentMetadata
 from logger import logger
 
+
 class DocumentParser:
-    def __init__(self, embedding_service):
+    def __init__(self, embedding_service, s3_client, bucket_name):
         self.embedding_service = embedding_service
-        self.cache_root = "local_cache"
+        self.cache_root = "tmp/cache/"
         os.makedirs(self.cache_root, exist_ok=True)
-        logger.info("DocumentParser initialized with cache root: %s", self.cache_root)
+        self.bucket = bucket_name
+        self.s3 = s3_client
+        logger.info("DocumentParser initialized with s3 bucket: %s", self.bucket)
 
     def _hash_docx_metadata(self, docx_file: DocxDocument) -> str:
         core_props = docx_file.core_properties
@@ -75,44 +78,51 @@ class DocumentParser:
 
     def parse_docx(self, docx_file: DocxDocument) -> List[DocumentChunk]:
         file_name = docx_file.name
-        docx_file = DocxDocument(docx_file)
-        file_hash = self._hash_docx_metadata(docx_file)
-        cache_dir = os.path.join(self.cache_root, file_hash)
-        os.makedirs(cache_dir, exist_ok=True)
+        docx_obj = DocxDocument(docx_file)
+        file_hash = self._hash_docx_metadata(docx_obj)
+        cache_prefix = f"cache/{file_hash}/"
 
-        file_path = os.path.join(cache_dir, "uploaded.docx")
-        chunks_path = os.path.join(cache_dir, "chunks.json")
-        markdown_path = os.path.join(cache_dir, "converted.md")
+        chunks_key = cache_prefix + "chunks.json"
+        markdown_key = cache_prefix + "converted.md"
+        uploaded_key = cache_prefix + "uploaded.docx"
 
         # Return from cache if exists
-        if os.path.exists(chunks_path):
-            logger.info("Found cached chunks for document with hash: %s", file_hash)
-            with open(chunks_path, "r", encoding="utf-8") as f:
-                chunk_dicts = json.load(f)
+        try:
+            response = self.s3.get_object(Bucket=self.bucket, Key=chunks_key)
+            chunk_dicts = json.load(response['Body'])
+            logger.info("Loaded chunks from S3: %s", chunks_key)
             return [self._reconstruct_chunk_from_dict(chunk) for chunk in chunk_dicts]
+        except self.s3.exceptions.NoSuchKey:
+            logger.info("No cached chunks found in S3 for hash: %s", file_hash)
 
         # Save file to file_path for pandoc subprocess
-        docx_file.save(file_path)
-        logger.info("Processing new document: %s", docx_file.core_properties.title)
+        local_docx_path = os.path.join(self.cache_root, f"{file_hash}_uploaded.docx")
+        docx_obj.save(local_docx_path)
+        
+        logger.info("Processing new document: %s", file_name)
+        self.s3.upload_file(local_docx_path, self.bucket, uploaded_key)
         
         # Load file again for fresh metadata
-        core_props = docx_file.core_properties
+        core_props = docx_obj.core_properties
         file_date = core_props.modified or datetime.now()
 
         # Convert DOCX to Markdown using pandoc
+        local_md_path = os.path.join(self.cache_root, f"{file_hash}_converted.md")
         subprocess.run([
-            "pandoc", file_path,
+            "pandoc", local_docx_path,
             "--from=docx",
             "--to=markdown",
-            "--output", markdown_path,
+            "--output", local_md_path,
             "--wrap=none",
             "--markdown-headings=atx",
             "--shift-heading-level-by=0"
         ], check=True)
-        logger.info("Successfully converted %s to markdown", docx_file.core_properties.title)
+        logger.info("Converted %s to markdown", local_md_path)
 
-        with open(markdown_path, "r", encoding="utf-8") as f:
+        with open(local_md_path, "r", encoding="utf-8") as f:
             markdown = f.read()
+            
+        self.s3.upload_file(local_md_path, self.bucket, markdown_key)
 
         pattern = r"(?=^#{1,3} .*)"  # Split on headings (up to ###)
         raw_chunks = re.split(pattern, markdown, flags=re.MULTILINE)
@@ -154,15 +164,19 @@ class DocumentParser:
                 file_date=file_date,
                 section_number=section_number,
                 section_heading=current_heading,
-                document_id=docx_file.core_properties.title,
+                document_id=file_hash,
             )
             chunks.append(DocumentChunk(content=chunk_text, metadata=metadata, embedding=embedding))
 
         logger.info("Successfully processed %d chunks with embeddings", len(chunks))
 
-        # Save processed chunks to cache
-        with open(chunks_path, "w", encoding="utf-8") as f:
-            json.dump([self._serialize_chunk(chunk) for chunk in chunks], f, default=str, indent=2)
-        logger.info("Saved chunks to cache: %s", chunks_path)
+        chunk_dicts = [self._serialize_chunk(chunk) for chunk in chunks]
+        self.s3.put_object(
+            Bucket=self.bucket,
+            Key=chunks_key,
+            Body=json.dumps(chunk_dicts, indent=2, default=str),
+            ContentType="application/json"
+        )
+        logger.info("Saved chunks to S3: %s", chunks_key)
 
         return chunks
