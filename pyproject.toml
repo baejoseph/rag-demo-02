@@ -4,24 +4,27 @@ version = "0.1.0"
 description = "A lightweight RAG (Retrieval Augmented Generation) implementation"
 authors = []
 dependencies = [
-    "openai>=1.82.1",
-    # released 29 May 2025
-    "python-dotenv>=1.0.0",
-    # for environment variable management
-    "pydantic>=2.0.0",
-    # for data validation
-    "python-docx>=0.8.11",
-    # for reading .docx metadata
-    "streamlit>=1.25.0",
-    # for frontend UI
-    "dotenv",
-    "numpy>1.24.4",
-    "boto3>=1.38.32",
+  "python-dotenv>=1.0.0",    # .env loader
+  "pydantic>=2.0.0",         # config & data validation
+  "python-docx>=0.8.11",     # docx parsing
+  "streamlit>=1.25.0",       # UI
+  "numpy>=1.24.4",           # numeric core
 ]
+
+
 
 requires-python = ">=3.11"
 
 [project.optional-dependencies]
+cloud = [
+  "openai>=1.82.1",          # OpenAI API calls
+  "boto3>=1.38.32",          # S3 cache
+]
+local = [
+  "transformers>=4.30.0",    
+  "sentence-transformers>=2.2.2",
+  "faiss-cpu>=1.7.3",
+]
 dev = ["ruff", "pytest"]
 docx = ["python-docx"]
 pdf = ["PyMuPDF"]
