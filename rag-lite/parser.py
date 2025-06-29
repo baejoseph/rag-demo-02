@@ -5,6 +5,8 @@ import json
 import hashlib
 from typing import List, Dict, Any, Tuple
 from datetime import datetime
+import mammoth
+import html2text  
 from docx import Document as DocxDocument
 from rag_pipeline import DocumentChunk, DocumentMetadata
 from logger import logger
@@ -107,20 +109,20 @@ class DocumentParser:
         file_date = core_props.modified or datetime.now()
 
         # Convert DOCX to Markdown using pandoc
-        local_md_path = os.path.join(self.cache_root, f"{file_hash}_converted.md")
-        subprocess.run([
-            "pandoc", local_docx_path,
-            "--from=docx",
-            "--to=markdown",
-            "--output", local_md_path,
-            "--wrap=none",
-            "--markdown-headings=atx",
-            "--shift-heading-level-by=0"
-        ], check=True)
-        logger.info("Converted %s to markdown", local_md_path)
+        
 
-        with open(local_md_path, "r", encoding="utf-8") as f:
-            markdown = f.read()
+        with open(local_docx_path, "rb") as f:
+            html = mammoth.convert_to_html(f).value
+
+        # use html2text for much cleaner markdown
+        converter = html2text.HTML2Text()
+        converter.body_width = 0       # no forced wraps
+        markdown = converter.handle(html)
+
+        # write out for inspection & cache
+        local_md_path = os.path.join(self.cache_root, f"{file_hash}_converted.md")
+        with open(local_md_path, "w", encoding="utf-8") as f:
+            f.write(markdown)
             
         self.s3.upload_file(local_md_path, self.bucket, markdown_key)
 
