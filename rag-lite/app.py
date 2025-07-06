@@ -57,36 +57,37 @@ if "base_services" not in st.session_state:
 # === File Upload ===
 st.sidebar.markdown("---")
 st.sidebar.subheader("📄 Upload docx file")
-uploaded_file = st.sidebar.file_uploader("Upload a docx file (<2MB)", type="docx")
+uploaded_files = st.sidebar.file_uploader("Upload a docx file (<2MB)", type="docx", accept_multiple_files=True)
 
-if uploaded_file and uploaded_file.size < 2 * 1024 * 1024:
-    st.sidebar.success(f"Uploaded: {uploaded_file.name}")
-    with st.spinner("Parsing document..."):
-        parser = DocumentParser(st.session_state.base_services["embedding_service"],
-                                st.session_state.base_services["s3_client"],
-                                bucket_name,)
-        new_chunks = parser.parse_docx(uploaded_file)
-    st.sidebar.success("Document parsed successfully", icon="✅")
+for uploaded_file in uploaded_files:
+    if uploaded_file and uploaded_file.size < 2 * 1024 * 1024:
+        st.sidebar.success(f"Uploaded: {uploaded_file.name}")
+        with st.spinner("Parsing document..."):
+            parser = DocumentParser(st.session_state.base_services["embedding_service"],
+                                    st.session_state.base_services["s3_client"],
+                                    bucket_name,)
+            new_chunks = parser.parse_docx(uploaded_file)
+        st.sidebar.success("Document parsed successfully", icon="✅")
 
-    # Add chunks and get count of newly added ones
-    added_count = st.session_state.corpus.add_chunks(new_chunks)
-    
-    if added_count > 0:
-        st.sidebar.success(f"Added {added_count} new chunks to corpus")
-    else:
-        st.sidebar.info("No new chunks added (document already in corpus)")
-    
-    total_chunks = len(st.session_state.corpus.get_all_chunks())
-    st.sidebar.info(f"Total chunks in corpus: {total_chunks}")
+        # Add chunks and get count of newly added ones
+        added_count = st.session_state.corpus.add_chunks(new_chunks)
+        
+        if added_count > 0:
+            st.sidebar.success(f"Added {added_count} new chunks to corpus")
+        else:
+            st.sidebar.info("No new chunks added (document already in corpus)")
+        
+        total_chunks = len(st.session_state.corpus.get_all_chunks())
+        st.sidebar.info(f"Total chunks in corpus: {total_chunks}")
 
-elif uploaded_file:
-    st.sidebar.error("File too large. Please upload files under 2MB.")
+    elif uploaded_file:
+        st.sidebar.error("File too large. Please upload files under 2MB.")
 
 # === Retrieval Configuration ===
 st.sidebar.markdown("---")
 st.sidebar.subheader("🔧 Retrieval Settings")
 top_k = st.sidebar.slider("Top K Chunks", 1, 10, 3)
-similarity_threshold = st.sidebar.slider("Similarity Threshold", 0.0, 1.0, 0.6)
+similarity_threshold = st.sidebar.slider("Similarity Threshold", 0.0, 1.0, 0.42)
 
 # === Chat Input ===
 user_input = st.chat_input("Ask a question...")
