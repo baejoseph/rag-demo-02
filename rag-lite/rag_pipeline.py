@@ -263,10 +263,10 @@ class QueryProcessor:
         self.config = config
         logger.info("Initialized QueryProcessor with config: %s", config)
 
-    def process_query(self, query_text: str) -> str:
+    def pre_gen_process(self, query_text: str) -> str:
         """
-        Process a query through the RAG pipeline.
-        Returns generated response.
+        Process a query through the RAG pipeline until the generation.
+        Returns augmented response.
         """
         if not query_text.strip():
             raise ValueError("Query text cannot be empty")
@@ -278,9 +278,16 @@ class QueryProcessor:
         retrieved_chunks = self.retrieval_service.retrieve_similar_chunks(
             query, self.config.retrieval
         )
-
         augmented_prompt = self.prompt_augmenter.augment_query(query, retrieved_chunks)
         logger.info("Augmented prompt: %s", augmented_prompt)
+        return augmented_prompt
+
+    def process_query(self, query_text: str) -> str:
+        """
+        Process a query through the RAG pipeline after retrieval.
+        Returns generated response.
+        """
+        augmented_prompt = self.pre_gen_process(query_text)
         response = self.generation_service.generate_response(augmented_prompt)
         logger.info("Query processing completed")
         logger.info("Response: %s", response)

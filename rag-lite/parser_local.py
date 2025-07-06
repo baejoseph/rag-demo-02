@@ -176,7 +176,7 @@ class DocumentParser:
             )
 
             # get embedding (assuming your service has embed_text)
-            embedding = self.embedding_service.embed_text(chunk_text)
+            embedding = list(self.embedding_service.embed_text(chunk_text))
 
             metadata = DocumentMetadata(
                 file_name       = file_name,
