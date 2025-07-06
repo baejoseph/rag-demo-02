@@ -47,17 +47,14 @@ A lightweight but powerful implementation of Retrieval Augmented Generation (RAG
    uv pip install -e .
    ```
 
-4. **Install System Dependencies**
-   - Install Pandoc for document conversion:
+4. **Install Local LLMs (for local running mode)**
+   - Install Ollama and install necessary models:
      ```bash
-     # macOS
-     brew install pandoc
+     # For Inference
+     ollama pull deepseek-r1:latest
 
-     # Ubuntu/Debian
-     sudo apt-get install pandoc
-
-     # Windows
-     choco install pandoc
+     # For Embedding
+     ollama pull nomic-embed-text
      ```
 
 5. **Set Up Environment Variables**
@@ -68,15 +65,15 @@ A lightweight but powerful implementation of Retrieval Augmented Generation (RAG
 
 ## 🎮 Usage
 
-1. **Start the Application**
+1. **Start the Application (app_local.py for local mode)**
    ```bash
    streamlit run rag-lite/app.py
    ```
 
 2. **Upload Documents**
    - 📂 Click the file upload button in the sidebar
-   - 📄 Upload any DOCX file (< 2MB)
-   - 🔄 Watch as it's processed and chunked intelligently
+   - 📄 Upload any DOCX files (< 2MB)
+   - 🔄 Watch as it's processed and chunked intelligently (caching!)
 
 3. **Configure Retrieval**
    - 🎚️ Adjust "Top K Chunks" slider (1-10)
