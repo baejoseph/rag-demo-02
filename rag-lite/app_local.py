@@ -34,7 +34,8 @@ if "base_services" not in st.session_state:
         similarity_metric  = CosineSimilarity()
         retrieval_service  = RetrievalService(
             st.session_state.corpus,
-            similarity_metric
+            similarity_metric,
+            "BAAI/bge-reranker-large",
         )
         augmenter     = PromptAugmenter('rag_prompt.md')
         cache_service = LocalCacheService(cache_dir)
@@ -136,7 +137,7 @@ if user_input:
 
         # after stream, ensure final_text shows alone
         if final_text:
-            assistant_area.markdown(final_text)
+            assistant_area = st.empty()
             st.session_state.chat_history.append({"user": user_input, "bot": final_text})
         else:
             st.session_state.chat_history.append({"user": user_input, "bot": collected})

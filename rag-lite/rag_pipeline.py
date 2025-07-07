@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import List, Protocol, Optional, Dict
 from datetime import datetime
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import torch
 from logger import logger
 
 # === Data Classes ===
@@ -162,13 +164,63 @@ class CosineSimilarity:
 class RetrievalService:
     """Service for retrieving relevant chunks based on query similarity."""
     
-    def __init__(self, corpus: Corpus, similarity_metric: SimilarityMetric):
+    def __init__(self, corpus: Corpus, similarity_metric: SimilarityMetric, reranker_model_name: str = None):
         if not isinstance(corpus, Corpus):
             raise ValueError("corpus must be an instance of Corpus")
             
         self.corpus = corpus
         self.similarity_metric = similarity_metric
         logger.info("Initialized RetrievalService")
+        
+        # initialize BGE reranker if requested
+        if reranker_model_name:
+            self.reranker_tokenizer = AutoTokenizer.from_pretrained(reranker_model_name)
+            self.reranker_model = AutoModelForSequenceClassification.from_pretrained(reranker_model_name)
+            logger.info(f"Loaded BGE re-ranker model: {reranker_model_name}")
+        else:
+            self.reranker_tokenizer = None
+            self.reranker_model = None
+
+    def rerank_with_bge(
+        self,
+        query_text: str,
+        retrieved_chunks: List[RetrievedChunk],
+        top_n: int = 3
+    ) -> List[RetrievedChunk]:
+        """
+        Re-rank retrieved chunks with BGE cross-encoder
+        """
+        if not self.reranker_model:
+            logger.warning("BGE re-ranker is not configured, skipping reranking.")
+            return retrieved_chunks
+        
+        pairs = [(query_text, rc.chunk.content) for rc in retrieved_chunks]
+        
+        inputs = self.reranker_tokenizer(
+            [q for q, c in pairs],
+            [c for q, c in pairs],
+            return_tensors="pt",
+            truncation=True,
+            padding=True
+        )
+        
+        with torch.no_grad():
+            outputs = self.reranker_model(**inputs)
+            scores = outputs.logits.squeeze(-1)
+        
+        # rank the retrieved chunks by BGE re-ranker scores
+        sorted_indices = torch.topk(scores, k=min(top_n, len(retrieved_chunks))).indices.tolist()
+        
+        sorted_indices = [x for x in sorted_indices if scores[x].item() > 0.0]
+        
+        reranked_chunks = [retrieved_chunks[i] for i in sorted_indices]
+        
+        for idx,rc in enumerate(reranked_chunks):
+            logger.info("Re-ranked chunk from section %s with BGE score %.3f", 
+                        rc.chunk.metadata.section_number, scores[sorted_indices[idx]].item())
+        
+        logger.info("Re-ranked chunks with BGE cross-encoder.")
+        return reranked_chunks
 
     def retrieve_similar_chunks(
         self, query: Query, config: RetrievalConfig
@@ -191,13 +243,20 @@ class RetrievalService:
                 continue
         
         results.sort(key=lambda rc: rc.similarity_score, reverse=True)
-        results = results[:config.top_k]
+        if self.reranker_model:
+            results = results[:20]
+        else:
+            results = results[:config.top_k]
         
         logger.info("Retrieved %d chunks above similarity threshold %.2f", 
                    len(results), config.similarity_threshold)
         for rc in results:
             logger.info("Retrieved chunk from section %s with score %.3f", 
                         rc.chunk.metadata.section_number, rc.similarity_score)
+        
+        # pass to reranker if configured
+        if self.reranker_model:
+            results = self.rerank_with_bge(query.text, results, top_n=config.top_k)
         
         return results
 
