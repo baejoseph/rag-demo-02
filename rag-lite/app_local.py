@@ -5,10 +5,13 @@ from rag_pipeline import (
     ProcessorConfig, RetrievalConfig, CosineSimilarity
 )
 from parser_local import DocumentParser
-from datetime import datetime
 from dotenv import load_dotenv
 import os
 import re
+from log_time import ProcessTimer
+
+
+pt = ProcessTimer()
 
 load_dotenv()
 
@@ -100,6 +103,7 @@ if user_input:
             generation_service=st.session_state.base_services["generation_service"],
             config=config
         )
+    pt.mark("Answer Generation")
     with st.spinner("Thinking..."):
         # Augment user query using retrieve relevant chunks
         augmented_query = processor.pre_gen_process(user_input)
@@ -113,6 +117,7 @@ if user_input:
         think_text = ""
         final_text = ""
         
+        pt.mark("Thinking process")
         for partial in response_chunks:
             collected += partial
 
@@ -133,12 +138,14 @@ if user_input:
                     assistant_area.markdown(final_text)  # replace entire area
             else:
                 # if no <think> tags at all, just stream normally
+                pt.done("Thinking process")
                 assistant_area.markdown(collected)
 
         # after stream, ensure final_text shows alone
         if final_text:
             assistant_area = st.empty()
             st.session_state.chat_history.append({"user": user_input, "bot": final_text})
+            pt.done("Answer Generation")
         else:
             st.session_state.chat_history.append({"user": user_input, "bot": collected})
 

@@ -17,6 +17,7 @@ dependencies = [
   "faiss-cpu>=1.10.0",
   "html2text",
   "ollama>=0.5.1",
+  "humanfriendly",
 ]
 
 

@@ -34,7 +34,6 @@ class OllamaGenerationService:
     def __init__(self, model: str = "deepseek-r1:latest"):
         self.model = model
 
-
     def generate_response(self, prompt: str) -> str:
         response_chunks = ollama.generate(model=self.model, prompt=prompt, stream=True)
         collected = ""

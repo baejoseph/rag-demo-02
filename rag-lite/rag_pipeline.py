@@ -4,6 +4,7 @@ from datetime import datetime
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
 from logger import logger
+from log_time import log_time
 
 # === Data Classes ===
 
@@ -181,6 +182,7 @@ class RetrievalService:
             self.reranker_tokenizer = None
             self.reranker_model = None
 
+    @log_time("rerank_with_bge")
     def rerank_with_bge(
         self,
         query_text: str,
@@ -222,6 +224,7 @@ class RetrievalService:
         logger.info("Re-ranked chunks with BGE cross-encoder.")
         return reranked_chunks
 
+    @log_time("retrieve_similar_chunks")
     def retrieve_similar_chunks(
         self, query: Query, config: RetrievalConfig
     ) -> List[RetrievedChunk]:
@@ -244,7 +247,7 @@ class RetrievalService:
         
         results.sort(key=lambda rc: rc.similarity_score, reverse=True)
         if self.reranker_model:
-            results = results[:20]
+            results = results[:config.top_k]
         else:
             results = results[:config.top_k]
         

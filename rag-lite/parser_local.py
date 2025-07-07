@@ -11,6 +11,7 @@ from docx import Document as DocxDocument
 
 from rag_pipeline import DocumentChunk, DocumentMetadata
 from logger import logger
+from log_time import log_time
 
 
 class DocumentParser:
@@ -69,6 +70,7 @@ class DocumentParser:
             return body, str(lvl), heading
         return text.strip(), "", ""
 
+    @log_time("Parsing Docx or Loading Cached")
     def parse_docx(self, docx_file) -> List[DocumentChunk]:
         # —————————————————————
         # 1) Hash & cache paths
