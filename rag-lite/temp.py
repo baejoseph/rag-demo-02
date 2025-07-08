@@ -1,5 +1,4 @@
-from ollama_services import OllamaEmbeddingService
+from helpers import load_config
 
-embedding_service = OllamaEmbeddingService()
-
-print(embedding_service.embed_text("The sky is blue because of rayleigh scattering"))
+for x in ['inference_model', 'embedding_model', 'reranker_model']:
+    print(f"value of {x}: {load_config(x)}")

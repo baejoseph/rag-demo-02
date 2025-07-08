@@ -50,11 +50,11 @@ A lightweight but powerful implementation of Retrieval Augmented Generation (RAG
 4. **Install Local LLMs (for local running mode)**
    - Install Ollama and install necessary models:
      ```bash
-     # For Inference
+     # For Inference (requires 5.2 GB)
      ollama pull deepseek-r1:latest
 
-     # For Embedding
-     ollama pull nomic-embed-text
+     # For Embedding (requires 669 MB)
+     ollama pull mxbai-embed-large
      ```
 
 5. **Set Up Environment Variables**

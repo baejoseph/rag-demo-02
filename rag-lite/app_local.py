@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 import os
 import re
 from log_time import ProcessTimer
+from helpers import load_config
 
 
 pt = ProcessTimer()
@@ -32,13 +33,13 @@ if "corpus" not in st.session_state:
 
 if "base_services" not in st.session_state:
     with st.spinner("Initializing local models…"):
-        embedding_service = OllamaEmbeddingService()
-        generation_service = OllamaGenerationService()
+        embedding_service = OllamaEmbeddingService(load_config('embedding_model'))
+        generation_service = OllamaGenerationService(load_config('inference_model'))
         similarity_metric  = CosineSimilarity()
         retrieval_service  = RetrievalService(
             st.session_state.corpus,
             similarity_metric,
-            "BAAI/bge-reranker-large",
+            load_config('reranker_model'),
         )
         augmenter     = PromptAugmenter('rag_prompt.md')
         cache_service = LocalCacheService(cache_dir)
