@@ -6,32 +6,16 @@ import logging
 
 # Adjust this import to wherever your parser lives:
 from parser_local import DocumentParser
-from ollama_services import OllamaEmbeddingService
+from ollama_services import OllamaEmbeddingService, LocalCacheService
 from helpers import load_config
 from log_time import ProcessTimer
 
 pt = ProcessTimer()
 
-# ——— Simple in-memory cache stub ———
-class SimpleCache:
-    def __init__(self):
-        self.store = {}
-
-    def get_object(self, Bucket, Key):
-        if Key in self.store:
-            return {'Body': io.BytesIO(self.store[Key])}
-        else:
-            raise FileNotFoundError
-
-    def upload_file(self, Filename, Bucket, Key):
-        with open(Filename, 'rb') as f:
-            data = f.read()
-        self.store[Key] = data
-
 def main():
     logging.basicConfig(level=logging.INFO)
     embed_service = OllamaEmbeddingService(load_config('embedding_model'))
-    cache_service = SimpleCache()
+    cache_service = LocalCacheService()
     parser = DocumentParser(
         embedding_service=embed_service,
         cache_service=cache_service,
@@ -51,7 +35,7 @@ def main():
 
     # The document_id is the hash used for the JSON filename:
     doc_id = chunks[0].metadata.document_id
-    json_path = os.path.join(parser.cache_root, f"{doc_id}_chunks.json")
+    json_path = os.path.join(parser.cache_root, f"{doc_id}_chunks_embedded.json")
 
     if not os.path.exists(json_path):
         print(f"❌ Expected JSON output not found at {json_path!r}")
