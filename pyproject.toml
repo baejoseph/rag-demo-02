@@ -18,6 +18,7 @@ dependencies = [
   "html2text",
   "ollama>=0.5.1",
   "humanfriendly",
+  "marker-pdf>=1.8.2",
 ]
 
 

@@ -1,4 +1,74 @@
-from helpers import load_config
+#!/usr/bin/env python3
+import os
+import io
+import json
+import logging
 
-for x in ['inference_model', 'embedding_model', 'reranker_model']:
-    print(f"value of {x}: {load_config(x)}")
+# Adjust this import to wherever your parser lives:
+from parser_local import DocumentParser
+from ollama_services import OllamaEmbeddingService
+from helpers import load_config
+from log_time import ProcessTimer
+
+pt = ProcessTimer()
+
+# ——— Simple in-memory cache stub ———
+class SimpleCache:
+    def __init__(self):
+        self.store = {}
+
+    def get_object(self, Bucket, Key):
+        if Key in self.store:
+            return {'Body': io.BytesIO(self.store[Key])}
+        else:
+            raise FileNotFoundError
+
+    def upload_file(self, Filename, Bucket, Key):
+        with open(Filename, 'rb') as f:
+            data = f.read()
+        self.store[Key] = data
+
+def main():
+    logging.basicConfig(level=logging.INFO)
+    embed_service = OllamaEmbeddingService(load_config('embedding_model'))
+    cache_service = SimpleCache()
+    parser = DocumentParser(
+        embedding_service=embed_service,
+        cache_service=cache_service,
+        bucket_name='test-bucket'
+    )
+
+    pt.mark("Document parsing")
+    pdf_path = os.path.join('temp', 'test01.pdf')
+    print(f"Parsing PDF at {pdf_path!r}…")
+    chunks = parser.parse_pdf(pdf_path)
+    print(f"→ Parsed {len(chunks)} chunks.\n")
+    pt.done("Document parsing")
+
+    if not chunks:
+        print("No chunks produced.")
+        return
+
+    # The document_id is the hash used for the JSON filename:
+    doc_id = chunks[0].metadata.document_id
+    json_path = os.path.join(parser.cache_root, f"{doc_id}_chunks.json")
+
+    if not os.path.exists(json_path):
+        print(f"❌ Expected JSON output not found at {json_path!r}")
+        return
+
+    print(f"✅ JSON output written to {json_path!r}\n")
+
+    # Load and pretty-print the first 3 entries so you can inspect them:
+    with open(json_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    preview = data[:3]  # first three chunks
+    # truncate embeddings to only the first 3 floats
+    for chunk in preview:
+        chunk['embedding'] = chunk['embedding'][:3]
+    print("Preview of first 3 chunks:")
+    print(json.dumps(preview, indent=2, ensure_ascii=False))
+
+if __name__ == '__main__':
+    main()

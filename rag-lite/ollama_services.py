@@ -19,7 +19,7 @@ class GenerationService(Protocol):
 
 
 class OllamaEmbeddingService:
-    def __init__(self, model: str = "nomic-embed-text"):
+    def __init__(self, model: str = "mxbai-embed-large"):
         self.model = model
         logger.info("Initialized OpenAIEmbeddingService with model: %s", model)
 
