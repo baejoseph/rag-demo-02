@@ -239,7 +239,7 @@ class DocumentParser:
             if m:
                 version = f"v{m.group(1)}"
                 try:
-                    file_date = datetime.strptime(m.group(2), "%d-%m-%Y")
+                    file_date = datetime.strptime(m.group(2), "%m-%d-%Y")
                 except ValueError:
                     file_date = datetime.now()
                 break
