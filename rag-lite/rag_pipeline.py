@@ -15,7 +15,9 @@ class DocumentMetadata:
     file_date: datetime
     section_number: str
     section_heading: str
+    section_page: Optional[int] = None
     document_id: Optional[str] = None
+    document_tags: Optional[List[str]] = None
 
     def __post_init__(self):
         if not self.file_name:

@@ -295,6 +295,9 @@ class DocumentParser:
                 output.append(ln)
 
         processed_text = "\n".join(output)
+
+        # strip out everything from the first “### Appendix:” onward
+        processed_text = re.sub(r'(?s)^###\s*Appendix:.*', '', processed_text)
         return processed_text, title, version, file_date
 
     @log_time("Parsing PDF or Loading Cached")
