@@ -245,9 +245,15 @@ class DocumentParser:
                 break
 
         # 2) Remove span tags
+        # but first annotate page numbers so we don’t lose them
+        markdown_text = re.sub(r'<span\s+id="page-(\d+)-\d+"\s*></span>',r'[PAGE:\1]',markdown_text)
+        # then move “[PAGE:X]” from front of the heading to the end
+        markdown_text = re.sub(r'^(##)\s*\[PAGE:(\d+)\](.+)$',r'\1\3 [PAGE:\2]',markdown_text,flags=re.MULTILINE)
+        markdown_text = re.sub(r'^(###)\s*\[PAGE:(\d+)\](.+)$',r'\1\3 [PAGE:\2]',markdown_text,flags=re.MULTILINE)
         cleaned = re.sub(r'</?span[^>]*>', '', markdown_text)
 
         # 3) Remove bold wrappers around numeric headings
+        cleaned = re.sub(r'^(#{1,6}\s*)(.*)$',lambda m: m.group(1) + m.group(2).replace('*', ''),cleaned,flags=re.MULTILINE)
         cleaned = re.sub(r'\*\*(\d+(?:\.\d+)*.*?)\*\*', r'\1', cleaned)
 
         # 4) Split into lines
@@ -265,11 +271,11 @@ class DocumentParser:
         start_idx: Optional[int] = None
         for idx, ln in enumerate(lines):
             s = ln.strip()
-            if re.match(r'^##\s*\d+(?:\.\d+)?\s+', s):
+            if re.match(r'^##*\s*\d+(?:\.\d+)?\s+', s):
                 start_idx = idx
                 break
         if start_idx is None:
-            return markdown_text, version, file_date
+            return markdown_text, title, version, file_date
 
         # 7) Build processed lines
         output = [f'TITLE OF DOCUMENT: {title}', '']
@@ -297,7 +303,7 @@ class DocumentParser:
         processed_text = "\n".join(output)
 
         # strip out everything from the first “### Appendix:” onward
-        processed_text = re.sub(r'(?s)^###\s*Appendix:.*', '', processed_text)
+        processed_text = re.sub(r'(?ms)^###\sAppendix:.*$', '', processed_text)
         return processed_text, title, version, file_date
 
     @log_time("Parsing PDF or Loading Cached")
@@ -414,6 +420,14 @@ class DocumentParser:
         for chunk in raw_chunks:
             if not chunk.strip().startswith('## '):
                 continue
+
+            # 1) extract the page marker
+            page_m = re.search(r'\[PAGE:(\d+)\]', chunk)
+            section_page = int(page_m.group(1)) if page_m else None
+
+            # 2) remove the marker so your heading looks clean
+            chunk = re.sub(r'\[PAGE:\d+\]', '', chunk)
+            
             lines = chunk.splitlines()
             # parse heading
             heading_line = lines[0][3:].strip()
@@ -424,7 +438,7 @@ class DocumentParser:
             body = '\n'.join(lines[1:]).strip()
             # Append title and section number and heading to chunk
             preamble = f"File: {title}, Version: {version}\n"
-            preamble += f"Section: {section_number} {section_heading}\n\n"
+            preamble += f"Section: {section_number} {section_heading} (on page {section_page})\n\n"
             body = preamble + body
             # package
             interim.append({
@@ -433,6 +447,7 @@ class DocumentParser:
                 'file_date': file_date.isoformat(),
                 'section_number': section_number,
                 'section_heading': section_heading,
+                'section_page': section_page,
                 'content': body
             })
         # cache interim JSON
