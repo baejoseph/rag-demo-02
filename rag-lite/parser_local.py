@@ -248,8 +248,7 @@ class DocumentParser:
         # but first annotate page numbers so we don’t lose them
         markdown_text = re.sub(r'<span\s+id="page-(\d+)-\d+"\s*></span>',r'[PAGE:\1]',markdown_text)
         # then move “[PAGE:X]” from front of the heading to the end
-        markdown_text = re.sub(r'^(##)\s*\[PAGE:(\d+)\](.+)$',r'\1\3 [PAGE:\2]',markdown_text,flags=re.MULTILINE)
-        markdown_text = re.sub(r'^(###)\s*\[PAGE:(\d+)\](.+)$',r'\1\3 [PAGE:\2]',markdown_text,flags=re.MULTILINE)
+        markdown_text = re.sub(r'^(#{1,3})\s*\[PAGE:(\d+)\](.+)$',r'\1\3 [PAGE:\2]',markdown_text,flags=re.MULTILINE)
         cleaned = re.sub(r'</?span[^>]*>', '', markdown_text)
 
         # 3) Remove bold wrappers around numeric headings

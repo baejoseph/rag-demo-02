@@ -23,10 +23,14 @@ def main():
     )
 
     pt.mark("Document parsing")
-    pdf_path = os.path.join('temp', 'test01.pdf')
-    print(f"Parsing PDF at {pdf_path!r}…")
-    chunks = parser.parse_pdf(pdf_path)
-    print(f"→ Parsed {len(chunks)} chunks.\n")
+    pdf_dir = 'temp'
+    for fname in os.listdir(pdf_dir):
+        if not fname.lower().endswith('.pdf'):
+            continue
+        pdf_path = os.path.join(pdf_dir, fname)
+        print(f"Parsing PDF at {pdf_path!r}…")
+        chunks = parser.parse_pdf(pdf_path)
+        print(f"→ Parsed {len(chunks)} chunks.\n")
     pt.done("Document parsing")
 
     if not chunks:
