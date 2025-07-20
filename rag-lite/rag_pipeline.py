@@ -215,7 +215,7 @@ class RetrievalService:
         # rank the retrieved chunks by BGE re-ranker scores
         sorted_indices = torch.topk(scores, k=min(top_n, len(retrieved_chunks))).indices.tolist()
         
-        sorted_indices = [x for x in sorted_indices if scores[x].item() > 0.0]
+        sorted_indices = [x for x in sorted_indices if scores[x].item() > scores[sorted_indices[0]].item()*0.5]
         
         reranked_chunks = [retrieved_chunks[i] for i in sorted_indices]
         

@@ -2,8 +2,7 @@ import streamlit as st
 from openai_services import OpenAIEmbeddingService, OpenAIGenerationService
 from rag_pipeline import (
     Corpus, RetrievalService, PromptAugmenter, QueryProcessor,
-    ProcessorConfig, RetrievalConfig, CosineSimilarity, DocumentChunk,
-    DocumentMetadata
+    ProcessorConfig, RetrievalConfig, CosineSimilarity
 )
 from parser import DocumentParser
 from typing import List

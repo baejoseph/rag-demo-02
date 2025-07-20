@@ -74,6 +74,26 @@ class DocumentParser:
             return body, str(lvl), heading
         return text.strip(), "", ""
 
+    def parse(self, file) -> List[DocumentChunk]:
+        """
+        Parses the uploaded file based on its type.
+
+        Parameters:
+        - file: UploadedFile (from Streamlit), a file-like object
+
+        Returns:
+        - Result of parse_pdf() or parse_docx()
+
+        Raises:
+        - ValueError: If the file type is unsupported
+        """
+        if file.name.endswith('.pdf'):
+            return self.parse_pdf(file)
+        elif file.name.endswith('.docx'):
+            return self.parse_docx(file)
+        else:
+            raise ValueError("Unsupported file type. Only PDF and DOCX files are supported.")
+
     @log_time("Parsing Docx or Loading Cached")
     def parse_docx(self, docx_file) -> List[DocumentChunk]:
         # —————————————————————

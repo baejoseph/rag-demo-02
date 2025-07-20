@@ -6,15 +6,22 @@ import logging
 
 # Adjust this import to wherever your parser lives:
 from parser_local import DocumentParser
-from ollama_services import OllamaEmbeddingService, LocalCacheService
+from ollama_services import OllamaEmbeddingService, LocalCacheService 
+from openai_services import OpenAIEmbeddingService
 from helpers import load_config
 from log_time import ProcessTimer
+from dotenv import load_dotenv
 
 pt = ProcessTimer()
+load_dotenv()
+
+
+api_key = os.environ["OPENAI_API_KEY"]
+
 
 def main():
     logging.basicConfig(level=logging.INFO)
-    embed_service = OllamaEmbeddingService(load_config('embedding_model'))
+    embed_service = OpenAIEmbeddingService(api_key) # OllamaEmbeddingService(load_config('embedding_model'))
     cache_service = LocalCacheService()
     parser = DocumentParser(
         embedding_service=embed_service,

@@ -1,5 +1,6 @@
 import streamlit as st
 from ollama_services import OllamaEmbeddingService, OllamaGenerationService, LocalCacheService
+from openai_services import OpenAIEmbeddingService, OpenAIGenerationService
 from rag_pipeline import (
     Corpus, RetrievalService, PromptAugmenter, QueryProcessor,
     ProcessorConfig, RetrievalConfig, CosineSimilarity
@@ -16,13 +17,15 @@ pt = ProcessTimer()
 
 load_dotenv()
 
+
+api_key = os.environ["OPENAI_API_KEY"]
 # === Streamlit Setup ===
 st.set_page_config(page_title="RAG Chat MVP (Local)", layout="wide")
 st.title("🔍📚 Retrieval-Augmented Chatbot (Local Demo)")
 
 # === Local Cache & Model Setup ===
 cache_dir    = os.getenv("LOCAL_CACHE_DIR", "local_cache")
-bucket_name  = os.getenv("LOCAL_CACHE_BUCKET", "default")
+bucket_name  = 'test-bucket'
   
 # === Session State Initialization ===
 if "chat_history" not in st.session_state:
@@ -33,8 +36,8 @@ if "corpus" not in st.session_state:
 
 if "base_services" not in st.session_state:
     with st.spinner("Initializing local models…"):
-        embedding_service = OllamaEmbeddingService(load_config('embedding_model'))
-        generation_service = OllamaGenerationService(load_config('inference_model'))
+        embedding_service = OpenAIEmbeddingService(api_key) #OllamaEmbeddingService(load_config('embedding_model'))
+        generation_service = OpenAIGenerationService(api_key) #OllamaGenerationService(load_config('inference_model'))
         similarity_metric  = CosineSimilarity()
         retrieval_service  = RetrievalService(
             st.session_state.corpus,
@@ -42,7 +45,7 @@ if "base_services" not in st.session_state:
             load_config('reranker_model'),
         )
         augmenter     = PromptAugmenter('rag_prompt.md')
-        cache_service = LocalCacheService(cache_dir)
+        cache_service = LocalCacheService()
 
         st.session_state.base_services = {
             "embedding_service": embedding_service,
@@ -55,11 +58,11 @@ if "base_services" not in st.session_state:
 
 # === File Upload ===
 st.sidebar.markdown("---")
-st.sidebar.subheader("📄 Upload docx file")
-uploaded_files = st.sidebar.file_uploader("Upload a docx (<2MB)", type="docx", accept_multiple_files=True)
+st.sidebar.subheader("📄 Upload pdf or docx files")
+uploaded_files = st.sidebar.file_uploader("Upload pdf or docx (<200MB)", type=["pdf", "docx"], accept_multiple_files=True)
 
 for uploaded_file in uploaded_files:
-    if uploaded_file and uploaded_file.size < 2 * 1024 * 1024:
+    if uploaded_file and uploaded_file.size < 200 * 1024 * 1024:
         st.sidebar.success(f"Uploaded: {uploaded_file.name}")
         with st.spinner("Parsing…"):
             parser = DocumentParser(
@@ -67,7 +70,7 @@ for uploaded_file in uploaded_files:
                 st.session_state.base_services["cache_service"],
                 bucket_name
             )
-            new_chunks = parser.parse_docx(uploaded_file)
+            new_chunks = parser.parse(uploaded_file)
         st.sidebar.success("Document parsed", icon="✅")
 
         # Add to corpus
